@@ -1,0 +1,157 @@
+"""
+Fine-tune Gemma 2 2B-IT for text-to-SQL (LoRA via Unsloth) on Google Colab T4.
+
+Pipeline:
+    1. Install Unsloth and disable torch.compile (avoids an Inductor error on Colab).
+    2. Load the pre-quantized 4-bit Gemma 2 2B-IT base model.
+    3. Attach LoRA adapters (only these small matrices are trained).
+    4. Load the Spider text-to-SQL dataset and format it with Gemma's chat template.
+    5. Train with loss computed only on the SQL answer (not on the prompt).
+
+Output: LoRA adapters / checkpoints saved to colab drive that comes with the runtime.
+"""
+
+!pip install -q unsloth                       # Unsloth: fast, memory-efficient fine-tuning
+
+
+import os
+os.environ["UNSLOTH_COMPILE_DISABLE"] = "1"   # turn off Unsloth's auto-compile (fixes InductorError on Colab)
+os.environ["TORCHDYNAMO_DISABLE"] = "1"       # extra safety: turns off torch.compile entirely
+# NOTE: both variables must be set BEFORE Unsloth is imported
+
+from unsloth import FastLanguageModel          # must be imported before transformers/trl/peft
+# ... rest of your script unchanged
+
+
+from unsloth.chat_templates import train_on_responses_only   # masks the prompt so loss covers only the answer
+import torch
+from datasets import load_dataset              # Hugging Face datasets loader
+from trl import SFTTrainer, SFTConfig          # supervised fine-tuning trainer + its config
+
+max_seq_length = 2048                          # max tokens per example (longer ones are truncated)
+
+# ---- Model ----
+"""
+Load the base model.
+We use Unsloth's pre-quantized 4-bit copy of Gemma 2 2B-IT so it fits comfortably
+on a free Colab T4 (16 GB). Only the LoRA adapters added below get trained;
+the 4-bit base weights stay frozen.
+"""
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name = "unsloth/gemma-2-2b-it-bnb-4bit",   # public 4-bit mirror (no HF token or license needed)
+    max_seq_length = max_seq_length,
+    dtype = None,            # auto: fp16 on T4
+    load_in_4bit = True,     # keep weights in 4-bit to save VRAM
+)
+
+"""
+Attach LoRA adapters to the model.
+LoRA adds small trainable matrices next to the frozen weights, so only a tiny
+fraction of parameters is updated. The adapter folder saved later is ~80 MB.
+"""
+model = FastLanguageModel.get_peft_model(
+    model,
+    r = 16,                                          # LoRA rank: higher = more capacity, more memory
+    target_modules = ["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"],  # attention + MLP layers
+    lora_alpha = 16,                                 # scaling factor (alpha / r = 1.0 here)
+    lora_dropout = 0,                                # 0 is fastest in Unsloth
+    bias = "none",                                   # don't train bias terms
+    use_gradient_checkpointing = "unsloth",          # Unsloth's memory-saving checkpointing
+    random_state = 3407,                             # seed for reproducibility
+)
+
+# ---- Data ----
+dataset = load_dataset("SuperMax991/spider-text2sql", split="train")   # downloads and caches automatically
+print(dataset.column_names)     # confirm: db_schema, question, query
+print(dataset[0])               # look at one raw example
+
+def format_prompts(batch):
+    """
+    Convert raw dataset rows into Gemma chat-formatted training text.
+
+    For each row (schema, question, query) we build a two-turn conversation:
+        user:      instruction + database schema + question
+        assistant: the gold SQL query
+    tokenizer.apply_chat_template turns this into Gemma's format
+    (<start_of_turn>user ... <end_of_turn> <start_of_turn>model ... <end_of_turn>).
+    Gemma has no system role, so the instruction is placed inside the user turn.
+    """
+    texts = []
+    for schema, question, query in zip(batch["db_schema"], batch["question"], batch["query"]):
+        messages = [
+            {"role": "user", "content":
+                "You are a helpful SQL assistant. Given a database schema, "
+                "write a valid SQL query that answers the question.\n\n"
+                f"Schema:\n{schema}\n\nQuestion: {question}"},
+            {"role": "assistant", "content": query},          # the target the model learns to produce
+        ]
+        text = tokenizer.apply_chat_template(messages, tokenize=False)   # render to a plain string
+        texts.append(text.removeprefix("<bos>"))   # avoid double BOS (the trainer adds its own)
+    return {"text": texts}
+
+dataset = dataset.map(format_prompts, batched=True)   # adds a "text" column to every row
+print(dataset[0]["text"])       # eyeball the final format
+
+split = dataset.train_test_split(test_size=0.02, seed=3407)   # hold out 2% for validation loss
+train_ds, eval_ds = split["train"], split["test"]
+
+# ---- Training config ----
+SMOKE_TEST = False #True   # set to False for the real run (True = 60-step quick check)
+
+"""
+Two run modes share the same model/hyperparameters and differ only in these settings:
+    SMOKE_TEST = True : 60 steps, no eval, no checkpoints (a few minutes, checks everything works).
+    SMOKE_TEST = False: 1 full epoch, eval and checkpoint every 200 steps.
+Checkpoints are written to drive or storage that comes with colab runtime.
+"""
+if SMOKE_TEST:
+    run_args = dict(max_steps=60, warmup_steps=5, logging_steps=1,
+                    eval_strategy="no", save_strategy="no",
+                    output_dir = "/content/gemma2-sql/outputs")
+else:
+    run_args = dict(num_train_epochs=1, warmup_steps=40, logging_steps=10,   # ~5% warmup, log every 10 steps
+                    eval_strategy="steps", eval_steps=200,                   # validation loss every 200 steps
+                    save_strategy="steps", save_steps=200, save_total_limit=2,   # keep only the 2 newest checkpoints
+                    output_dir="/content/gemma2-sql/outputs")
+
+args = SFTConfig(
+    dataset_text_field = "text",            # column holding the formatted training text
+    max_seq_length = max_seq_length,
+    packing = False,                        # one example per sequence (no packing)
+    per_device_train_batch_size = 2,        # examples per GPU step
+    per_device_eval_batch_size = 2,         # kept small to avoid OOM during evaluation
+    gradient_accumulation_steps = 4,        # effective batch size = 2 x 4 = 8
+    learning_rate = 2e-4,                   # standard LoRA learning rate
+    lr_scheduler_type = "linear",           # linear decay to 0
+    optim = "adamw_8bit",                   # 8-bit AdamW saves optimizer memory
+    weight_decay = 0.01,                    # light regularization
+    fp16 = not torch.cuda.is_bf16_supported(),   # T4 has no bf16, so use fp16
+    bf16 = torch.cuda.is_bf16_supported(),       # newer GPUs (A100, L4) use bf16
+    seed = 3407,                            # reproducibility
+    report_to = "none",                     # no wandb/tensorboard logging
+    **run_args,                             # smoke-test or real-run settings from above
+)
+
+# ---- Trainer ----
+trainer = SFTTrainer(
+    model = model,
+    tokenizer = tokenizer,
+    train_dataset = train_ds,
+    eval_dataset = eval_ds,
+    args = args,
+)
+
+"""
+Train only on the model's answer.
+Everything up to and including "<start_of_turn>model\\n" (schema, question) is masked,
+so the loss is computed only on the SQL query. The two strings below must match
+the chat template's markers exactly, or the masking silently fails.
+"""
+# Compute loss only on the SQL answer
+trainer = train_on_responses_only(
+    trainer,
+    instruction_part = "<start_of_turn>user\n",     # marks where the prompt starts
+    response_part = "<start_of_turn>model\n",       # marks where the answer starts
+)
+
+trainer.train()                                      # start training (about 46 min for 1 epoch on a T4)
