@@ -1,0 +1,123 @@
+"""
+Post-training: save, zip, and download.
+
+Steps:
+    1. Save the LoRA adapters (small, ~80 MB). This is your master copy.
+    2. Save a standalone merged 16-bit model (~5 GB) with the adapters baked in.
+    3. Verify the saved files.
+    4. Zip each folder and download it through the browser.
+
+Everything is saved to Colab's LOCAL disk (/content).
+WARNING: local disk is wiped when the session ends or disconnects, so run the
+download cell right after saving and don't close the notebook until the
+downloads have finished.
+"""
+
+import os
+import shutil
+from google.colab import files               # browser download helper (works for single files only)
+
+adapter_dir = "/content/final-lora"          # LoRA adapter output folder
+merged_dir  = "/content/merged-16bit"        # standalone merged model output folder
+
+
+
+
+# ---- 1. Save the LoRA adapters ----
+"""
+Saves only the small trained LoRA matrices plus the tokenizer.
+To use them later you load the base Gemma 2 2B-IT model and attach this folder.
+"""
+model.save_pretrained(adapter_dir)           # adapter_model.safetensors + adapter_config.json
+tokenizer.save_pretrained(adapter_dir)       # tokenizer files, so the folder is self-contained
+
+
+# ---- 2. Save the standalone merged 16-bit model ----
+"""
+Merges the LoRA weights into the base model and writes full 16-bit weights.
+The result loads with plain transformers (no Unsloth or PEFT needed).
+16-bit is used instead of 4-bit because merging into 4-bit weights loses quality.
+Takes a few minutes and about 5 GB of disk.
+"""
+model.save_pretrained_merged(
+    merged_dir,
+    tokenizer,
+    save_method = "merged_16bit",            # full-precision merge (recommended over merged_4bit)
+)
+
+
+# ---- 3. Verify the saved files ----
+"""
+Print every file with its size before zipping.
+Expected:
+    final-lora  : adapter_model.safetensors (~80 MB) + adapter_config.json + tokenizer files
+    merged-16bit: weights totaling ~5 GB (one or several .safetensors files),
+                  plus config.json and tokenizer files
+If the sizes look far too small, the save did not complete, so re-run the save cell.
+"""
+for folder in (adapter_dir, merged_dir):
+    print(f"\n{folder}")
+    for name in sorted(os.listdir(folder)):
+        size_mb = os.path.getsize(os.path.join(folder, name)) / 1e6
+        print(f"  {size_mb:10.1f} MB  {name}")
+
+
+# ---- 4a. Zip and download the adapters ----
+"""
+Colab's files.download() cannot download a folder, so zip it first.
+make_archive(base_name, format, root_dir) creates /content/final-lora.zip.
+"""
+shutil.make_archive("/content/final-lora", "zip", adapter_dir)   # create the zip
+files.download("/content/final-lora.zip")                        # send it to your browser
+
+
+
+# ---- 4b. Zip and download the standalone model ----
+"""
+Same process for the merged model, but the zip is ~5 GB and needs that much free
+local disk. Weights are already compressed, so the zip is about the same size
+as the folder. Browser downloads of files this large sometimes stall; if that
+happens, use the per-file fallback in the next cell.
+"""
+shutil.make_archive("/content/merged-16bit", "zip", merged_dir)  # create the zip
+files.download("/content/merged-16bit.zip")                      # send it to your browser
+
+
+# ---- 4c. Fallback: download the merged model file by file (no zip) ----
+"""
+If the single 5 GB zip download fails, download each file in the folder separately.
+Allow multiple downloads when your browser asks, and keep all files together in
+one folder on your PC. If a large file fails, re-run this cell for that file only.
+"""
+for name in sorted(os.listdir(merged_dir)):
+    path = os.path.join(merged_dir, name)
+    if os.path.isfile(path):                 # skip subfolders (files.download handles files only)
+        print("Downloading", name)
+        files.download(path)
+
+
+# ---- 5. Optional: quick sanity test on the in-memory model ----
+"""
+Generate SQL for one example to confirm the trained model behaves correctly.
+Run this AFTER saving, because for_inference() switches the model to inference mode.
+Replace the schema and question with an example from the dataset.
+"""
+FastLanguageModel.for_inference(model)       # enable Unsloth's fast inference mode
+
+schema   = "department: Department_ID (number), Name (text) | head: head_ID (number), name (text), age (number)"
+question = "How many heads of the departments are older than 56 ?"
+messages = [{"role": "user", "content":
+    "You are a helpful SQL assistant. Given a database schema, "
+    "write a valid SQL query that answers the question.\n\n"
+    f"Schema:\n{schema}\n\nQuestion: {question}"}]
+
+inputs = tokenizer.apply_chat_template(
+    messages, add_generation_prompt=True,    # appends "<start_of_turn>model\n" so the model starts answering
+    return_tensors="pt", return_dict=True,
+).to("cuda")
+
+out = model.generate(**inputs, max_new_tokens=100, use_cache=True)
+print(tokenizer.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True))
+
+
+
