@@ -1,2 +1,4 @@
 # machine_learning-
-repository for machine learning codes mostly trained in google Colab platform
+repository for:
+  1. Machine learning codes mostly trained in google Colab platform.
+  2. RAG system
