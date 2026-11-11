@@ -30,3 +30,14 @@ def _truncate_by_search(counter, text: str, max_tokens: int) -> str:
         else:
             hi = mid - 1
     return text[:lo].rstrip()
+
+class CharTokenCounter:
+    """Rough estimate (default ~4 characters per token for English). Good enough to avoid gross overflows."""
+    def __init__(self, chars_per_token: float = 4.0):
+        self.cpt = chars_per_token
+
+    def count(self, text: str) -> int:
+        return math.ceil(len(text) / self.cpt) if text else 0
+
+    def truncate(self, text: str, max_tokens: int) -> str:
+        return text[: max(0, int(max_tokens * self.cpt))]
