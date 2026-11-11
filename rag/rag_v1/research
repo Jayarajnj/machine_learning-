@@ -16,3 +16,17 @@ class TokenCounter(Protocol):
     def count(self, text: str) -> int: ...
     def truncate(self, text: str, max_tokens: int) -> str: ...
 
+def _truncate_by_search(counter, text: str, max_tokens: int) -> str:
+    """Longest prefix of `text` that fits `max_tokens` (works with any monotonic count function)."""
+    if max_tokens <= 0:
+        return ""
+    if counter.count(text) <= max_tokens:
+        return text
+    lo, hi = 0, len(text)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if counter.count(text[:mid]) <= max_tokens:
+            lo = mid
+        else:
+            hi = mid - 1
+    return text[:lo].rstrip()
