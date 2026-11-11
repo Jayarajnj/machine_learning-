@@ -11,3 +11,8 @@ from __future__ import annotations
 
 import math
 from typing import Callable, Optional, Protocol
+
+class TokenCounter(Protocol):
+    def count(self, text: str) -> int: ...
+    def truncate(self, text: str, max_tokens: int) -> str: ...
+
