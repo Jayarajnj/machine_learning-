@@ -1,1 +1,13 @@
-python code below
+# %% [markdown]
+# # Multi-DB research chat: token counting and context budgets (step 10)
+# Context limits are measured in TOKENS, not characters. A `TokenCounter` is a tiny adapter around whatever
+# tokenizer matches your model (Hugging Face tokenizer for Gemma, tiktoken for OpenAI, or any function such
+# as a provider's count-tokens call). The default is a rough characters/4 estimate, so everything works
+# without extra dependencies, but swap in the real tokenizer for accurate budgets.
+# No dependency on the other research_*.py files.
+
+# %%
+from __future__ import annotations
+
+import math
+from typing import Callable, Optional, Protocol
