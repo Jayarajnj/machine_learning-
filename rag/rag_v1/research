@@ -49,3 +49,18 @@ class WhitespaceTokenCounter:
 
     def truncate(self, text: str, max_tokens: int) -> str:
         return " ".join(text.split()[: max(0, max_tokens)])
+
+class HFTokenCounter:
+    """Exact counts with a Hugging Face tokenizer: pass a tokenizer object, or a model id to load lazily
+    (e.g. HFTokenCounter("google/gemma-2-2b-it")). Anything with encode(text, add_special_tokens=False) and
+    decode(ids) works."""
+    def __init__(self, tokenizer_or_name):
+        self._name = tokenizer_or_name if isinstance(tokenizer_or_name, str) else None
+        self._tok = None if self._name else tokenizer_or_name
+
+    def _t(self):
+        if self._tok is None:
+            from transformers import AutoTokenizer
+            self._tok = AutoTokenizer.from_pretrained(self._name)
+        return self._tok
+
