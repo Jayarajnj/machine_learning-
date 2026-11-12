@@ -41,3 +41,11 @@ class CharTokenCounter:
 
     def truncate(self, text: str, max_tokens: int) -> str:
         return text[: max(0, int(max_tokens * self.cpt))]
+
+class WhitespaceTokenCounter:
+    """One token per whitespace-separated word. Handy for tests and quick experiments."""
+    def count(self, text: str) -> int:
+        return len(text.split())
+
+    def truncate(self, text: str, max_tokens: int) -> str:
+        return " ".join(text.split()[: max(0, max_tokens)])
