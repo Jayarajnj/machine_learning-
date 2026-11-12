@@ -64,3 +64,13 @@ class HFTokenCounter:
             self._tok = AutoTokenizer.from_pretrained(self._name)
         return self._tok
 
+    def count(self, text: str) -> int:
+        return len(self._t().encode(text, add_special_tokens=False)) if text else 0
+
+    def truncate(self, text: str, max_tokens: int) -> str:
+        if max_tokens <= 0:
+            return ""
+        ids = self._t().encode(text, add_special_tokens=False)
+        return text if len(ids) <= max_tokens else self._t().decode(ids[:max_tokens])
+
+
