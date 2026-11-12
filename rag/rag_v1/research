@@ -74,3 +74,13 @@ class HFTokenCounter:
         return text if len(ids) <= max_tokens else self._t().decode(ids[:max_tokens])
 
 
+
+class TiktokenCounter:
+    """OpenAI-style counts via tiktoken (pip install tiktoken). Give an encoding name ("o200k_base") or a model name."""
+    def __init__(self, name: str = "o200k_base"):
+        import tiktoken
+        try:
+            self._enc = tiktoken.get_encoding(name)
+        except ValueError:
+            self._enc = tiktoken.encoding_for_model(name)
+
