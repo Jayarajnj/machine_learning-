@@ -84,3 +84,5 @@ class TiktokenCounter:
         except ValueError:
             self._enc = tiktoken.encoding_for_model(name)
 
+    def count(self, text: str) -> int:
+        return len(self._enc.encode(text)) if text else 0
