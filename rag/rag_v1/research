@@ -86,3 +86,7 @@ class TiktokenCounter:
 
     def count(self, text: str) -> int:
         return len(self._enc.encode(text)) if text else 0
+
+    def truncate(self, text: str, max_tokens: int) -> str:
+        ids = self._enc.encode(text)
+        return text if len(ids) <= max_tokens else self._enc.decode(ids[: max(0, max_tokens)])
