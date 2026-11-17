@@ -110,3 +110,6 @@ class CallableTokenCounter:
 def count_messages(counter, messages: list, per_message: int = 6) -> int:
     """Tokens of a message list, including a small per-message allowance for the chat template."""
     return sum(counter.count(m["content"]) + per_message for m in messages)
+
+def fit_messages(counter, messages: list, max_tokens: int, per_message: int = 6) -> list:
+    """Newest messages that fit in `max_tokens`, in original order. If even the newest alone is too long 
