@@ -131,4 +131,43 @@ it is
         used += n
     return kept[::-1]
 
+# %% [markdown]
+# ## Offline smoke test
+
+# %%
+def _smoke_test():
+    c = CharTokenCounter()
+    assert c.count("") == 0 and c.count("abcd") == 1 and c.count("abcde") == 2
+    assert c.truncate("x" * 100, 10) == "x" * 40 and c.truncate("abc", 0) == ""
+
+    w = WhitespaceTokenCounter()
+    assert w.count("a b  c\nd") == 4 and w.truncate("a b c d e", 3) == "a b c"
+
+    class FakeTok:                                   # stands in for a Hugging Face tokenizer
+        def encode(self, text, add_special_tokens=False):
+            return text.split()
+
+        def decode(self, ids):
+            return " ".join(ids)
+    h = HFTokenCounter(FakeTok())
+    assert h.count("one two three") == 3 and h.truncate("one two three four", 2) == "one two"
+    assert h.truncate("one two", 5) == "one two" and h.truncate("x", 0) == ""
+
+    cc = CallableTokenCounter(lambda t: len(t.split()))                    # truncation found by search
+    assert cc.count("a b c") == 3 and cc.truncate("a b c d e", 3) == "a b c" and cc.truncate("a b", 9) == "a b"
+    assert cc.truncate("a b c", 0) == ""
+
+    msgs = [{"role": "user", "content": "w " * 50}, {"role": "assistant", "content": "w " * 50},
+            {"role": "user", "content": "w " * 50}]
+    assert count_messages(w, msgs, per_message=6) == 168
+    fitted = fit_messages(w, msgs, 120, per_message=6)                      # 56 each -> the two newest fit
+    assert fitted == msgs[1:]
+    one = fit_messages(w, msgs, 30, per_message=6)                          # even one is too long -> truncated newest
+    assert len(one) == 1 and one[0]["role"] == "user" and count_messages(w, one, 6) <= 31
+    assert fit_messages(w, msgs, 5) == [] and fit_messages(w, [], 100) == []
+    print("All token-budget checks passed.")
+
+
+if __name__ == "__main__" or "get_ipython" in globals():
+    _smoke_test()
 
