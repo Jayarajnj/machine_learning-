@@ -113,3 +113,22 @@ def count_messages(counter, messages: list, per_message: int = 6) -> int:
 
 def fit_messages(counter, messages: list, max_tokens: int, per_message: int = 6) -> list:
     """Newest messages that fit in `max_tokens`, in original order. If even the newest alone is too long 
+it is
+    truncated; if the budget is too small for any message the result is empty."""
+    if max_tokens <= per_message:
+        return []
+    kept: list = []
+    used = 0
+    for m in reversed(messages):
+        n = counter.count(m["content"]) + per_message
+        if used + n > max_tokens:
+            if kept:
+                break
+            room = max_tokens - per_message
+            m = {**m, "content": counter.truncate(m["content"], room).rstrip() + " …"}
+            n = counter.count(m["content"]) + per_message
+        kept.append(m)
+        used += n
+    return kept[::-1]
+
+
