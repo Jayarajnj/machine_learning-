@@ -90,3 +90,15 @@ class TiktokenCounter:
     def truncate(self, text: str, max_tokens: int) -> str:
         ids = self._enc.encode(text)
         return text if len(ids) <= max_tokens else self._enc.decode(ids[: max(0, max_tokens)])
+
+class CallableTokenCounter:
+    """Wrap any count function (for example a provider's count-tokens API). `truncate` is found by search
+    unless you pass your own; note that an API-based counter makes truncation slower."""
+    def __init__(self, count_fn: Callable[[str], int], truncate_fn: Optional[Callable[[str, int], str]] = None):
+        self._count, self._truncate = count_fn, truncate_fn
+
+    def count(self, text: str) -> int:
+        return self._count(text) if text else 0
+
+    def truncate(self, text: str, max_tokens: int) -> str:
+        return self._truncate(text, max_tokens) if self._truncate else _truncate_by_search(self, text, max_tokens)
