@@ -19,4 +19,24 @@ from research_retrieval_core import Chunk, ChromaRetriever, DBRegistry
 
 log = logging.getLogger("research_context")
 
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, replace
+from typing import Optional
+
+from research_retrieval_core import Chunk, ChromaRetriever, DBRegistry
+
+log = logging.getLogger("research_context")
+
+
+# %% [markdown]
+# ## Cell 1: how chunks are grouped and ordered (configurable, auto-detected from common names)
+
+# %%
+DEFAULT_GROUP_KEYS = ("thread_id", "thread", "conversation_id", "parent_id", "email_id",
+                      "doc_id", "document_id", "source", "filename", "file_name", "file", "path")
+DEFAULT_ORDER_KEYS = ("date", "timestamp", "sent_at", "message_index", "chunk_index",
+                      "chunk", "position", "seq", "index")          # composite sort: all present keys, in this order
+DEFAULT_INDEX_KEYS = ("chunk_index", "chunk", "message_index", "position", "seq", "index")  # consecutive ints
 
