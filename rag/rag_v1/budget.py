@@ -33,3 +33,4 @@ DEFAULT_INDEX_KEYS = ("chunk_index", "chunk", "message_index", "position", "seq"
 
 def _blank(v) -> bool:
     return v is None or v == ""
+
