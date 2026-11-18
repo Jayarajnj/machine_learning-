@@ -34,3 +34,10 @@ DEFAULT_INDEX_KEYS = ("chunk_index", "chunk", "message_index", "position", "seq"
 def _blank(v) -> bool:
     return v is None or v == ""
 
+def _sortable(v):
+    """Comparable across mixed types (numbers < text < missing)."""
+    if _blank(v):
+        return (2, 0, "")
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return (0, v, "")
+    return (1, 0, str(v))
