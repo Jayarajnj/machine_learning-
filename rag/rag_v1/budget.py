@@ -40,3 +40,5 @@ DEFAULT_ORDER_KEYS = ("date", "timestamp", "sent_at", "message_index", "chunk_in
                       "chunk", "position", "seq", "index")          # composite sort: all present keys, in this order
 DEFAULT_INDEX_KEYS = ("chunk_index", "chunk", "message_index", "position", "seq", "index")  # consecutive ints
 
+def _blank(v) -> bool:
+    return v is None or v == ""
