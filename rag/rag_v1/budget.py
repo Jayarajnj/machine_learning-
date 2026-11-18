@@ -9,3 +9,14 @@
 # Needs research_retrieval_core.py in the same folder.
 
 # %%
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, replace
+from typing import Optional
+
+from research_retrieval_core import Chunk, ChromaRetriever, DBRegistry
+
+log = logging.getLogger("research_context")
+
+
