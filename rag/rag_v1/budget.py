@@ -40,3 +40,6 @@ def _sortable(v):
     if isinstance(v, (int, float)) and not isinstance(v, bool):
         return (0, v, "")
     return (1, 0, str(v))
+
+def _is_num(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
