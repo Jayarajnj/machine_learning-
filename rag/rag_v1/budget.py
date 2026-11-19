@@ -57,3 +57,18 @@ if small
     thread_max_chunks: int = 12                # "thread" mode: groups larger than this fall back to the window
     max_group_fetch: int = 400                 # groups bigger than this are expanded with a numeric range query
     max_context_chars: int = 2400              # cap per expanded passage (far neighbours are dropped first)
+
+    def group_of(self, md: dict):
+        for k in self.group_keys:
+            if k in md and not _blank(md[k]):
+                return (k, md[k])
+        return None
+
+    def has_order(self, md: dict) -> bool:
+        return any(k in md and not _blank(md[k]) for k in self.order_keys)
+
+    def sort_key(self, md: dict) -> tuple:
+        return tuple(_sortable(md.get(k)) for k in self.order_keys)
+
+    def index_key_of(self, md: dict) -> Optional[str]:
+        return next((k for k in self.index_keys if _is_num(md.get(k))), None)
