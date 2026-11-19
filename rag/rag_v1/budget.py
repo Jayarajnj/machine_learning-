@@ -51,3 +51,9 @@ class ExpansionSpec:
     order_keys: tuple = DEFAULT_ORDER_KEYS     # how chunks inside a group are ordered (all present keys, in order)
     index_keys: tuple = DEFAULT_INDEX_KEYS     # consecutive integer position, used for huge groups only
     mode: str = "window"                       # "window": +-`window` chunks | "thread": the whole group 
+
+if small
+    window: int = 1
+    thread_max_chunks: int = 12                # "thread" mode: groups larger than this fall back to the window
+    max_group_fetch: int = 400                 # groups bigger than this are expanded with a numeric range query
+    max_context_chars: int = 2400              # cap per expanded passage (far neighbours are dropped first)
