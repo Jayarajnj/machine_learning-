@@ -72,3 +72,13 @@ if small
 
     def index_key_of(self, md: dict) -> Optional[str]:
         return next((k for k in self.index_keys if _is_num(md.get(k))), None)
+
+# %% [markdown]
+# ## Cell 2: the expander
+# Per DB: group the hits, load each group's chunks, order them, select the window (or thread) around
+# every hit, merge overlapping windows into one passage, and attach it to the best-ranked hit of that
+# passage (`chunk.context`, joined with " ¶ "). Other hits inside the same passage are absorbed, so a
+# passage is cited once. Any failure leaves the plain hits untouched.
+
+# %%
+SEP = " ¶ "
