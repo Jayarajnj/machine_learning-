@@ -43,3 +43,11 @@ def _sortable(v):
 
 def _is_num(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+@dataclass
+class ExpansionSpec:
+    enabled: bool = True
+    group_keys: tuple = DEFAULT_GROUP_KEYS     # first one present on a chunk defines its group (thread / document)
+    order_keys: tuple = DEFAULT_ORDER_KEYS     # how chunks inside a group are ordered (all present keys, in order)
+    index_keys: tuple = DEFAULT_INDEX_KEYS     # consecutive integer position, used for huge groups only
+    mode: str = "window"                       # "window": +-`window` chunks | "thread": the whole group 
