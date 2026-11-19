@@ -82,3 +82,28 @@ if small
 
 # %%
 SEP = " ¶ "
+
+class ContextExpander:
+    def __init__(self, registry: DBRegistry, specs: Optional[dict] = None,
+                 default: Optional[ExpansionSpec] = None, enabled: bool = True):
+        self.registry, self.specs = registry, specs or {}
+        self.default, self.enabled = default or ExpansionSpec(), enabled
+        self._warned: set = set()
+
+    def expand(self, grouped: dict) -> dict:
+        """{db: [Chunk]} -> {db: [Chunk]} where hits carry `context`. Never mutates the input chunks."""
+        if not self.enabled:
+            return grouped
+        out = {}
+        for db, hits in grouped.items():
+            spec = self.specs.get(db, self.default)
+            if not spec.enabled or not hits:
+                out[db] = list(hits)
+                continue
+            try:
+                out[db] = self._expand_db(self.registry.get(db), list(hits), spec)
+            except Exception as e:                                     # noqa: BLE001
+                log.warning("Context expansion failed for DB %r: %s", db, e)
+                out[db] = list(hits)
+        return out
+
