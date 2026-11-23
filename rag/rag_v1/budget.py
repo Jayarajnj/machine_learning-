@@ -129,3 +129,20 @@ class ContextExpander:
             for c in retr.get_where(where):
                 by_id[c.id] = c
         return sorted(by_id.values(), key=lambda c: spec.sort_key(c.metadata)), ik
+
+
+    @staticmethod
+    def _trim(run: list, hit_pos: set, chunks: list, cap: int) -> list:
+        """Drop far-away neighbours from the ends of a run until the passage fits `cap` characters."""
+        run = list(run)
+
+        def size(r):
+            return sum(len(chunks[j].text) for j in r) + len(SEP) * (len(r) - 1)
+
+        while size(run) > cap and len(run) > 1:
+            ends = [e for e in (run[0], run[-1]) if e not in hit_pos]
+            if not ends:
+                break
+            run.remove(max(ends, key=lambda e: min(abs(e - p) for p in hit_pos)))
+        return run
+
