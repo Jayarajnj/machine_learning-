@@ -146,3 +146,33 @@ class ContextExpander:
             run.remove(max(ends, key=lambda e: min(abs(e - p) for p in hit_pos)))
         return run
 
+    # -- one DB -----------------------------------------------------------------------------
+    def _expand_db(self, retr: ChromaRetriever, hits: list, spec: ExpansionSpec) -> list:
+        result: dict = {}                       # rank -> chunk to show
+        groups: dict = {}                       # (key, value) -> [(rank, hit)]
+        for rank, h in enumerate(hits):
+            g = spec.group_of(h.metadata)
+            if g is None or not spec.has_order(h.metadata):
+                result[rank] = h                # no grouping/ordering metadata: leave as is
+            else:
+                groups.setdefault(g, []).append((rank, h))
+
+        if not groups and hits and retr.name not in self._warned:
+            self._warned.add(retr.name)
+            log.warning("DB %r: no hit has both a group field (%s...) and an order field (%s...) in its metadata, so "
+                        "context expansion does nothing for it. Store e.g. thread_id/source and chunk_index.",
+                        retr.name, spec.group_keys[0], spec.order_keys[0])
+        for (gk, gv), members in groups.items():
+            loaded = self._load_group(retr, gk, gv, members, spec)
+            if loaded is None:
+                result.update({rank: h for rank, h in members})
+                continue
+            chunks, gap_key = loaded
+            pos_by_id = {c.id: i for i, c in enumerate(chunks)}
+            hit_pos: dict = {}
+            for rank, h in members:
+                if h.id in pos_by_id:
+                    hit_pos[rank] = pos_by_id[h.id]
+                else:
+                    result[rank] = h
+
