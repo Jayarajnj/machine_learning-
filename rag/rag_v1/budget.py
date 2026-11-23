@@ -193,3 +193,20 @@ class ContextExpander:
                 else:
                     runs.append([j])
 
+            for run in runs:
+                in_run = {rank: p for rank, p in hit_pos.items() if run[0] <= p <= run[-1]}
+                if not in_run:
+                    continue
+                best_rank = max(in_run, key=lambda r: (hits[r].scores.get("rerank", 0.0), -r))
+                run = self._trim(run, set(in_run.values()), chunks, spec.max_context_chars)
+                if len(run) == 1:
+                    result[best_rank] = hits[best_rank]     # no neighbours available
+                    continue
+                result[best_rank] = replace(
+                    hits[best_rank],
+                    context=SEP.join(chunks[j].text.strip() for j in run),
+                    context_ids=[chunks[j].id for j in run])
+                # the other hits inside this passage are absorbed into it
+        return [result[r] for r in sorted(result)]
+
+
