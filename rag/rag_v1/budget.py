@@ -210,3 +210,7 @@ class ContextExpander:
         return [result[r] for r in sorted(result)]
 
 
+# %% [markdown]
+# ## Cell 3: offline smoke test
+
+# %%
