@@ -176,3 +176,20 @@ class ContextExpander:
                 else:
                     result[rank] = h
 
+            if spec.mode == "thread" and len(chunks) <= spec.thread_max_chunks:
+                selected = set(range(len(chunks)))
+            else:
+                selected = {j for p in hit_pos.values()
+                            for j in range(max(0, p - spec.window), min(len(chunks), p + spec.window + 1))}
+
+            runs: list = []
+            for j in sorted(selected):
+                contiguous = bool(runs) and j == runs[-1][-1] + 1
+                if contiguous and gap_key is not None:      # huge-group mode: positions may skip numbers
+                    a, b = chunks[runs[-1][-1]].metadata.get(gap_key), chunks[j].metadata.get(gap_key)
+                    contiguous = _is_num(a) and _is_num(b) and b - a <= 1
+                if contiguous:
+                    runs[-1].append(j)
+                else:
+                    runs.append([j])
+
