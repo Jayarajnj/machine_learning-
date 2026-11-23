@@ -83,6 +83,7 @@ if small
 # %%
 SEP = " ¶ "
 
+
 class ContextExpander:
     def __init__(self, registry: DBRegistry, specs: Optional[dict] = None,
                  default: Optional[ExpansionSpec] = None, enabled: bool = True):
@@ -107,3 +108,24 @@ class ContextExpander:
                 out[db] = list(hits)
         return out
 
+    # -- loading a group's chunks -------------------------------------------------------
+    def _load_group(self, retr: ChromaRetriever, gk, gv, members: list, spec: ExpansionSpec):
+        """Returns (chunks sorted in order, gap_key or None) or None if the group can't be loaded."""
+        got = retr.get_where({gk: gv}, limit=spec.max_group_fetch + 1)
+        if len(got) <= spec.max_group_fetch:
+            return sorted(got, key=lambda c: spec.sort_key(c.metadata)), None
+        # huge group: fetch only +-window around each hit using a consecutive integer position key
+        ik = spec.index_key_of(members[0][1].metadata)
+        if ik is None:
+            log.warning("Group %s=%r has more than %d chunks and no integer position key: not expanded",
+                        gk, gv, spec.max_group_fetch)
+            return None
+        by_id = {}
+        for _, h in members:
+            pos = h.metadata.get(ik)
+            if not _is_num(pos):
+                continue
+            where = {"$and": [{gk: gv}, {ik: {"$gte": pos - spec.window}}, {ik: {"$lte": pos + spec.window}}]}
+            for c in retr.get_where(where):
+                by_id[c.id] = c
+        return sorted(by_id.values(), key=lambda c: spec.sort_key(c.metadata)), ik
