@@ -244,3 +244,9 @@ def _smoke_test():
     out = ex.expand({"mails": [hit("T-1-1", 0.6), hit("T-1-3", 0.9)]})["mails"]
     assert len(out) == 1 and out[0].id == "T-1-3" and out[0].context_ids == [f"T-1-{i}" for i in range(5)]
 
+
+    # 3) far-apart hits stay separate passages (ranks preserved)
+    out = ex.expand({"mails": [hit("T-1-4", 0.9), hit("T-1-0", 0.8)]})["mails"]
+    assert [c.id for c in out] == ["T-1-4", "T-1-0"]
+    assert out[0].context_ids == ["T-1-3", "T-1-4"] and out[1].context_ids == ["T-1-0", "T-1-1"]
+
