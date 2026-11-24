@@ -214,3 +214,18 @@ class ContextExpander:
 # ## Cell 3: offline smoke test
 
 # %%
+def _smoke_test():
+    from research_retrieval_core import _FakeCollection
+
+    def thread(tid, texts, start=0):
+        return [(f"{tid}-{i}", t, {"thread_id": tid, "chunk_index": i, "source": f"mail_{tid}"})
+                for i, t in enumerate(texts, start)]
+
+    t1 = [f"T1 part {i}: " + "x" * 70 for i in range(5)]
+    rows = thread("T-1", t1) + thread("T-2", ["T2 part 0", "T2 part 1"]) + [("loose", "no metadata at all", {})]
+    coll = _FakeCollection(rows)
+    reg = DBRegistry().add(ChromaRetriever("mails", coll, description="Email threads"))
+
+    def hit(cid, score=1.0, db="mails"):
+        r = next(r for r in rows if r[0] == cid)
+        return Chunk(id=cid, text=r[1], db=db, metadata=dict(r[2]), source=f"src-{cid}", scores={"rerank": score})
