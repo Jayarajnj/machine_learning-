@@ -229,3 +229,12 @@ def _smoke_test():
     def hit(cid, score=1.0, db="mails"):
         r = next(r for r in rows if r[0] == cid)
         return Chunk(id=cid, text=r[1], db=db, metadata=dict(r[2]), source=f"src-{cid}", scores={"rerank": score})
+
+    ex = ContextExpander(reg)
+
+    # 1) window=1: the hit comes with its neighbours, in order; originals untouched
+    h2 = hit("T-1-2")
+    out = ex.expand({"mails": [h2]})["mails"]
+    assert len(out) == 1 and out[0].id == "T-1-2" and out[0].context_ids == ["T-1-1", "T-1-2", "T-1-3"]
+    assert out[0].context == SEP.join(t1[1:4]) and out[0].full_text == out[0].context and out[0].text == t1[2]
+    assert h2.context == "" and h2.full_text == h2.text
