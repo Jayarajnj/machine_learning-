@@ -238,3 +238,9 @@ def _smoke_test():
     assert len(out) == 1 and out[0].id == "T-1-2" and out[0].context_ids == ["T-1-1", "T-1-2", "T-1-3"]
     assert out[0].context == SEP.join(t1[1:4]) and out[0].full_text == out[0].context and out[0].text == t1[2]
     assert h2.context == "" and h2.full_text == h2.text
+
+
+    # 2) two close hits merge into ONE passage attributed to the better-ranked hit
+    out = ex.expand({"mails": [hit("T-1-1", 0.6), hit("T-1-3", 0.9)]})["mails"]
+    assert len(out) == 1 and out[0].id == "T-1-3" and out[0].context_ids == [f"T-1-{i}" for i in range(5)]
+
