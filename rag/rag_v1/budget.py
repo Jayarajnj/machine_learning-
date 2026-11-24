@@ -250,3 +250,34 @@ def _smoke_test():
     assert [c.id for c in out] == ["T-1-4", "T-1-0"]
     assert out[0].context_ids == ["T-1-3", "T-1-4"] and out[1].context_ids == ["T-1-0", "T-1-1"]
 
+    # 4) chunks without group/order metadata are returned unchanged, and order is kept
+    out = ex.expand({"mails": [hit("loose"), hit("T-1-2")]})["mails"]
+    assert out[0].context == "" and out[1].context_ids == ["T-1-1", "T-1-2", "T-1-3"]
+
+    # 5) thread mode: the whole (small) thread, but not other threads
+    ex_thread = ContextExpander(reg, default=ExpansionSpec(mode="thread"))
+    out = ex_thread.expand({"mails": [hit("T-1-2")]})["mails"]
+    assert out[0].context_ids == [f"T-1-{i}" for i in range(5)] and "T2 part" not in out[0].context
+    ex_big = ContextExpander(reg, default=ExpansionSpec(mode="thread", thread_max_chunks=3))   # too big -> window
+    assert ex_big.expand({"mails": [hit("T-1-2")]})["mails"][0].context_ids == ["T-1-1", "T-1-2", "T-1-3"]
+
+    # 6) character cap: far neighbours are dropped first, the hit stays
+    ex_cap = ContextExpander(reg, default=ExpansionSpec(window=2, max_context_chars=260))
+    out = ex_cap.expand({"mails": [hit("T-1-2")]})["mails"]
+    assert out[0].context_ids == ["T-1-1", "T-1-2", "T-1-3"]
+
+    # 7) huge group: falls back to numeric range queries and keeps distant windows apart
+    ex_huge = ContextExpander(reg, default=ExpansionSpec(max_group_fetch=3))
+    out = ex_huge.expand({"mails": [hit("T-1-0", 0.9), hit("T-1-4", 0.8)]})["mails"]
+    assert [c.context_ids for c in out] == [["T-1-0", "T-1-1"], ["T-1-3", "T-1-4"]]
+
+    # 8) per-DB switch, global switch, and failure safety
+    assert ContextExpander(reg, specs={"mails": ExpansionSpec(enabled=False)}).expand({"mails": [hit("T-1-2")]})["mails"][0].context == ""
+    assert ContextExpander(reg, enabled=False).expand({"mails": [hit("T-1-2")]})["mails"][0].context == ""
+    retr = reg.get("mails")
+    original = retr.get_where
+    retr.get_where = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db down"))
+    assert ContextExpander(reg).expand({"mails": [hit("T-1-2")]})["mails"][0].context == ""
+    retr.get_where = original
+    # a DB without grouping/ordering metadata is left alone, and the reason is logged once
+    import logging
