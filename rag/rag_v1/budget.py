@@ -286,3 +286,9 @@ def _smoke_test():
         def __init__(self):
             super().__init__()
             self.msgs = []
+
+        def emit(self, record):
+            self.msgs.append(record.getMessage())
+    catch = _Catch()
+    log.addHandler(catch)
+    bare = ContextExpander(DBRegistry().add(ChromaRetriever("bare", _FakeCollection([("z", "text", None)]))))
