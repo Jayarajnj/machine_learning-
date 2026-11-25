@@ -281,3 +281,8 @@ def _smoke_test():
     retr.get_where = original
     # a DB without grouping/ordering metadata is left alone, and the reason is logged once
     import logging
+
+    class _Catch(logging.Handler):
+        def __init__(self):
+            super().__init__()
+            self.msgs = []
