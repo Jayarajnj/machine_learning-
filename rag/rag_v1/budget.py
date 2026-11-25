@@ -297,3 +297,8 @@ def _smoke_test():
     log.removeHandler(catch)
     assert len(catch.msgs) == 1 and "no hit has both a group field" in catch.msgs[0]
     print("All context-expansion checks passed.")
+
+
+
+if __name__ == "__main__" or "get_ipython" in globals():
+    _smoke_test()
