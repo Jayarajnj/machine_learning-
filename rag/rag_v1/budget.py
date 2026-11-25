@@ -292,3 +292,6 @@ def _smoke_test():
     catch = _Catch()
     log.addHandler(catch)
     bare = ContextExpander(DBRegistry().add(ChromaRetriever("bare", _FakeCollection([("z", "text", None)]))))
+    z = Chunk("z", "text", "bare", {}, "chunk z (no metadata available)")
+    assert bare.expand({"bare": [z]})["bare"] == [z] and bare.expand({"bare": [z]})["bare"] == [z]
+    log.removeHandler(catch)
