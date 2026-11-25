@@ -295,3 +295,5 @@ def _smoke_test():
     z = Chunk("z", "text", "bare", {}, "chunk z (no metadata available)")
     assert bare.expand({"bare": [z]})["bare"] == [z] and bare.expand({"bare": [z]})["bare"] == [z]
     log.removeHandler(catch)
+    assert len(catch.msgs) == 1 and "no hit has both a group field" in catch.msgs[0]
+    print("All context-expansion checks passed.")
