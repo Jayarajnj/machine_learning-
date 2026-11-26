@@ -26,3 +26,15 @@ _TOKEN = re.compile(r"\w+", re.UNICODE)
 
 def _tokens(text: str) -> list:
     return _TOKEN.findall((text or "").lower())
+@dataclass
+class DedupeConfig:
+    enabled: bool = True
+    jaccard: float = 0.8              # word-3-gram overlap that counts as "the same text"
+    containment: float = 0.9          # share of the smaller chunk found inside the larger one
+    shingle: int = 3
+    min_tokens: int = 12              # shorter chunks are never merged (boilerplate lines are not duplicates)
+    score_tolerance: float = 0.05     # rerank scores this close count as equal when choosing which copy to keep
+    db_priority: tuple = ()           # most authoritative DB first, e.g. ("policies", "emails"): wins ties
+    guard_keys: tuple = ("version", "revision", "doc_version", "effective_date")   # differing values = not a duplicate
+    cross_db: bool = True
+    within_db: bool = True
