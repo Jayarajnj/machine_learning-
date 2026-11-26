@@ -21,3 +21,8 @@ from typing import Optional
 
 from research_retrieval_core import Chunk
 
+_TOKEN = re.compile(r"\w+", re.UNICODE)
+
+
+def _tokens(text: str) -> list:
+    return _TOKEN.findall((text or "").lower())
