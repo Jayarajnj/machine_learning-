@@ -38,3 +38,11 @@ class DedupeConfig:
     guard_keys: tuple = ("version", "revision", "doc_version", "effective_date")   # differing values = not a duplicate
     cross_db: bool = True
     within_db: bool = True
+
+@dataclass
+class _Entry:
+    chunk: Chunk
+    pos: tuple                        # (db index, rank in its DB): keeps the original order stable
+    shingles: Optional[frozenset]
+    nums: frozenset
+    also_in: list
