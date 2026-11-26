@@ -13,4 +13,11 @@
 # Text-based on purpose: embeddings from different DBs/models are not comparable. Needs research_retrieval_core.
 
 # %%
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field, replace
+from typing import Optional
+
+from research_retrieval_core import Chunk
 
