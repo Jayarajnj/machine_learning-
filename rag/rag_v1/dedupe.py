@@ -62,3 +62,8 @@ class Deduper:
     @staticmethod
     def _label(c: Chunk) -> str:
         return f"{c.db}: {c.source}"
+
+    def _prio(self, db: str) -> int:
+        pr = self.cfg.db_priority
+        return pr.index(db) if db in pr else len(pr)
+
