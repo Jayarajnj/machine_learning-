@@ -51,3 +51,7 @@ class Deduper:
         self.cfg = config or DedupeConfig()
 
     # -- features ------------------------------------------------------------------
+    def _entry(self, chunk: Chunk, pos: tuple) -> _Entry:
+        toks = _tokens(chunk.text)
+        n = self.cfg.shingle
+        sh = None
