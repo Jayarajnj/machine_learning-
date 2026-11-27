@@ -46,3 +46,8 @@ class _Entry:
     shingles: Optional[frozenset]
     nums: frozenset
     also_in: list
+class Deduper:
+    def __init__(self, config: Optional[DedupeConfig] = None):
+        self.cfg = config or DedupeConfig()
+
+    # -- features ------------------------------------------------------------------
