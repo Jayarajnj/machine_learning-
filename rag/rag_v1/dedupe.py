@@ -59,3 +59,6 @@ class Deduper:
             sh = frozenset(tuple(toks[i:i + n]) for i in range(max(1, len(toks) - n + 1)))
         nums = frozenset(t for t in toks if any(ch.isdigit() for ch in t))
         return _Entry(chunk, pos, sh, nums, list(chunk.also_in))
+    @staticmethod
+    def _label(c: Chunk) -> str:
+        return f"{c.db}: {c.source}"
