@@ -55,3 +55,7 @@ class Deduper:
         toks = _tokens(chunk.text)
         n = self.cfg.shingle
         sh = None
+        if len(toks) >= self.cfg.min_tokens:
+            sh = frozenset(tuple(toks[i:i + n]) for i in range(max(1, len(toks) - n + 1)))
+        nums = frozenset(t for t in toks if any(ch.isdigit() for ch in t))
+        return _Entry(chunk, pos, sh, nums, list(chunk.also_in))
